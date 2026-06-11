@@ -34,7 +34,7 @@ def taylor_polynomial(f, x, a, n):
 
 
 
-# Build the plot
+# Build the figures and plot
 x_vals = numpy.linspace(-2*numpy.pi, 2*numpy.pi, 500)
 f_vals = numpy.array([float(f.subs(x, val1)) for val1 in x_vals])
     # list comprehension loops through all x_vals, subs into f and puts in array
@@ -44,15 +44,30 @@ n_val = 0
 
 p_vals = numpy.array([float(taylor_polynomial(f, x, a_val, n_val).subs(x,val)) for val in x_vals])
 
-fig, ax = mpl.subplots()
+fig = mpl.figure(figsize=(10, 6)) # window size in inches, w x h. Slightly wider
+gs = fig.add_gridspec(2, 2, width_ratios=[2, 1], height_ratios=[1, 1]) # 2 rows and 2 columns, ratios: left 2x as wide
+ax = fig.add_subplot(gs[:, 0]) # : makes left column spans both rows
+ax_r = fig.add_subplot(gs[1, 1]) # bottom right cell, for R(x) (remainder polynomial)
+ax_m = fig.add_subplot(gs[0, 1]) # top right for M (max error in Taylor)
+    # index starts i=0, from top; [row, column]
+
 mpl.subplots_adjust(bottom=0.25)
 line_f, = ax.plot(x_vals, f_vals, label='f(x)')
 line_p, = ax.plot(x_vals, p_vals, label='P_n(x)')
     # comma needed to take from list to line
 
-ax.legend()
+ax.legend() # accepts labels from line 55 and 56
 ax.grid(True) # must be capital
-ax.set_ylim(-3, 3) # make adaptable
+ax.set_ylim(-5, 5) # make adaptable
+
+ax_m.axis('off') # don't want M grid
+m_text = ax_m.text(0.5, 0.5, 'M = ', transform = ax_m.transAxes, ha = 'center', va = 'center', fontsize = 12)
+    # needs to be a variable that can update
+
+ax_r.set_ylim(0,1)
+ax_r.set_title('|R_n(x)|')
+ax_r.grid(True)
+line_r, = ax_r.plot(x_vals, numpy.zeros_like(x_vals), label = '|R_n(x)|') # array of zeros as default same length as x_vals
 
 
 
@@ -96,13 +111,24 @@ def update_plot():
     p_vals = numpy.array([float(taylor_polynomial(f, x, a_val, n_val).subs(x, val2)) for val2 in x_vals])
     line_f.set_ydata(f_vals) # set_y replaces Taylor P y-values with new values, no x array regen
     line_p.set_ydata(p_vals)
+
+    r_vals = numpy.abs(f_vals - p_vals) # generic formula. Abs value
+    line_r.set_ydata(r_vals)
+    ax_r.set_ylim(0, max(r_vals) * 1.2) # make sure function is visible
+
+    # compute M
+    f_deriv = sympy.diff(f, x, n_val +1)
+    deriv_vals = numpy.array([abs(float(f_deriv.subs(x, val1))) for val1 in x_vals])
+    M = float(numpy.max(deriv_vals))
+    m_text.set_text(f'M = {M:.4f}') # f string - embeds variables in text. 4 decimal places
+
     fig.canvas.draw_idle() # draw_idle tells matplotlib to redraw the figure efficiently
 
 def select_function(label):
     global f_label, f
     f_label = label # update global tracker to new function name
     f = functions[f_label].subs(b, b_val)
-    update_plot
+    update_plot()
 
 # text submissions handled when pressing enter in the wdiget:
 
