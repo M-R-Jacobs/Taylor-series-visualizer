@@ -107,6 +107,11 @@ radio = RadioButtons(ax_radio, list(functions.keys())) # grab labels (function o
 
 # Handle updates to a and n sumbissions or widget interactions
 def update_plot():
+    if f_label == 'ln(bx)':
+        safe_vals = x_vals[x_vals > 0]
+    else:
+        safe_vals = x_vals
+
     f_vals = numpy.array([float(f.subs(x, val1)) for val1 in x_vals])
     p_vals = numpy.array([float(taylor_polynomial(f, x, a_val, n_val).subs(x, val2)) for val2 in x_vals])
     line_f.set_ydata(f_vals) # set_y replaces Taylor P y-values with new values, no x array regen
