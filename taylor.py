@@ -2,13 +2,25 @@
 import sympy as sympy
 import numpy as numpy 
 import matplotlib.pyplot as mpl
-from matplotlib.widgets import TextBox, Button
+from matplotlib.widgets import TextBox, Button, RadioButtons
 
 
 
 # Set up variables and function
-x, a = sympy.symbols('x a') # variables
-f = sympy.sin(x) # function input (change later!)
+x, a, b = sympy.symbols('x a b') # variables
+b_val = 1
+
+functions = {
+    'sin(bx)': sympy.sin(b * x),
+    'exp(bx)': sympy.exp(b *x),
+    'ln(bx)': sympy.log(b * x),
+    '1/(1+x²)': 1 / (1 + x**2)
+}
+    # functions is a dictionary: maps keys ('' labels) that are searched, onto values (sympy expressions) that you get back
+
+f_label = 'sin(bx)' # start sin(1x) by default
+f = functions[f_label].subs(b, b_val) # rebuild f according to user selection
+
 
 
 
@@ -44,15 +56,21 @@ ax.set_ylim(-3, 3) # make adaptable
 
 
 
-# n and a boxes and arrows for user input
-ax_box_n = mpl.axes([0.22,0.1,0.1,0.04]) # define axes regions before widget creation
+# n, a, and b boxes and arrows for user input, plus radio buttons widget for function selection
+ax_box_n = mpl.axes([0.22,0.1,0.1,0.04]) # define axes regions before widget creation below
 ax_left_n = mpl.axes([0.13,0.1,0.04,0.04])
 ax_right_n = mpl.axes([0.34,0.1,0.04,0.04])
 
 ax_box_a = mpl.axes([0.22,0.05,0.1,0.04])
 ax_left_a = mpl.axes([0.13,0.05,0.04,0.04])
 ax_right_a = mpl.axes([0.34,0.05,0.04,0.04])
-    # widget locations in format: [left, bottom, width, height]
+
+ax_box_b = mpl.axes([0.22,0.15,0.1,0.04])
+ax_left_b = mpl.axes([0.13,0.15,0.04,0.04])
+ax_right_b = mpl.axes([0.34,0.15,0.04,0.04])
+
+ax_radio = mpl.axes([0.55,0.02,0.15,0.15])
+    # widget locations in % from: [left, bottom, width, height]
 
 box_n = TextBox(ax_box_n, 'n', initial = str(n_val)) # str converts value to string (for Textbox)
 btn_left_n = Button(ax_left_n, '<') # region and label
@@ -62,15 +80,33 @@ box_a = TextBox(ax_box_a, 'a', initial = str(a_val)) # str converts value to str
 btn_left_a = Button(ax_left_a, '<') # region and label
 btn_right_a = Button(ax_right_a, '>')
 
+box_b = TextBox(ax_box_b, 'b', initial = str(b_val))
+btn_left_b = Button(ax_left_b, '<')
+btn_right_b = Button(ax_right_b, '>')
+
+radio = RadioButtons(ax_radio, list(functions.keys())) # grab labels (function options) as list and make clickable options
+    # btn_left and btn_right will be called at the end of the widget interactions section, next
+    # box_ will come before that, when defining the user interaction functions
+
 
 
 # Handle updates to a and n sumbissions or widget interactions
 def update_plot():
+    f_vals = numpy.array([float(f.subs(x, val1)) for val1 in x_vals])
     p_vals = numpy.array([float(taylor_polynomial(f, x, a_val, n_val).subs(x, val2)) for val2 in x_vals])
-    line_p.set_ydata(p_vals) # set_y replaces Taylor P y-values with new values, no x array regen
+    line_f.set_ydata(f_vals) # set_y replaces Taylor P y-values with new values, no x array regen
+    line_p.set_ydata(p_vals)
     fig.canvas.draw_idle() # draw_idle tells matplotlib to redraw the figure efficiently
 
-def submit_n(text):
+def select_function(label):
+    global f_label, f
+    f_label = label # update global tracker to new function name
+    f = functions[f_label].subs(b, b_val)
+    update_plot
+
+# text submissions handled when pressing enter in the wdiget:
+
+def submit_n(text): # text arg passed in by mpl, text for TextBox. In this case, a number
     global n_val # modifies global variable directly, no new variables
     n_val = max(0, int(float(text))) # compares value and returns higher (positive only). Textbox -> integer
     update_plot()
@@ -80,10 +116,18 @@ def submit_a(text):
     a_val = float(text) # any a value is fine
     update_plot()
 
-def click_left_n(event): # need the event argument
+def submit_b(text):
+    global b_val, f # b and f are both globals (and submit_b rebuilds f with the new b_val, unlike n & a)
+    b_val = max(1, int(float(text)))
+    f = functions[f_label].subs(b, b_val) # look up f_label in functions, use b_val
+    update_plot()
+
+# click left and right handled on arrow widget click events, n, a, and b:
+
+def click_left_n(event): # event arg for mpl mouse event object
     global n_val
     n_val = max(0, n_val - 1) # still need to prevent from going <0
-    box_n.set_val(str(n_val)) # update box text with new value (n-1)
+    box_n.set_val(str(n_val)) # update box text with new value (n-1). .set_val is in mpl's TextBox object
     update_plot()
 
 def click_right_n(event):
@@ -104,12 +148,31 @@ def click_right_a(event):
     box_a.set_val(str(round(a_val, 2)))
     update_plot()
 
+def click_left_b(event):
+    global b_val, f
+    b_val = max(1, b_val - 1)
+    box_b.set_val(str(b_val))
+    f = functions[f_label].subs(b, b_val)
+    update_plot()
+
+def click_right_b(event):
+    global b_val, f
+    b_val += 1
+    box_b.set_val(str(b_val))
+    f = functions[f_label].subs(b, b_val)
+    update_plot()
+
 box_n.on_submit(submit_n) # on_submit - when user presses enter in text box
 box_a.on_submit(submit_a)
+box_b.on_submit(submit_b)
 btn_left_n.on_clicked(click_left_n) # on_clicked - button widget click
 btn_right_n.on_clicked(click_right_n)
 btn_left_a.on_clicked(click_left_a)
 btn_right_a.on_clicked(click_right_a)
+btn_left_b.on_clicked(click_left_b)
+btn_right_b.on_clicked(click_right_b)
+
+radio.on_clicked(select_function)
 
 
 mpl.show()
