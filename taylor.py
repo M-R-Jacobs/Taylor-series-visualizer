@@ -107,24 +107,30 @@ radio = RadioButtons(ax_radio, list(functions.keys())) # grab labels (function o
 
 # Handle updates to a and n sumbissions or widget interactions
 def update_plot():
-    if f_label == 'ln(bx)':
+    if f_label == 'ln(bx)': # log domain error prevention for "Cannot convert complex to float"
         safe_vals = x_vals[x_vals > 0]
     else:
         safe_vals = x_vals
 
-    f_vals = numpy.array([float(f.subs(x, val1)) for val1 in x_vals])
-    p_vals = numpy.array([float(taylor_polynomial(f, x, a_val, n_val).subs(x, val2)) for val2 in x_vals])
+    f_vals = numpy.array([float(f.subs(x, val1)) for val1 in safe_vals])
+    p_vals = numpy.array([float(taylor_polynomial(f, x, a_val, n_val).subs(x, val2)) for val2 in safe_vals])
     line_f.set_ydata(f_vals) # set_y replaces Taylor P y-values with new values, no x array regen
     line_p.set_ydata(p_vals)
+    line_f.set_xdata(safe_vals) # Same as 2 lines above, need updated safe domain values
+    line_p.set_xdata(safe_vals)
 
     r_vals = numpy.abs(f_vals - p_vals) # generic formula. Abs value
     line_r.set_ydata(r_vals)
-    ax_r.set_ylim(0, max(r_vals) * 1.2) # make sure function is visible
+    line_r.set_xdata(safe_vals)
+    finite_r = r_vals[numpy.isfinite(r_vals)] # make sure function is visible, but e and ln diverege
+    if len(finite_r) > 0:
+        ax_r.set_ylim(0, max(finite_r) * 1.2)
+    ax_r.set_xlim(safe_vals[0], safe_vals[-1]) # -1 index is just the last element
 
     # compute M
     f_deriv = sympy.diff(f, x, n_val +1)
-    deriv_vals = numpy.array([abs(float(f_deriv.subs(x, val1))) for val1 in x_vals])
-    M = float(numpy.max(deriv_vals))
+    deriv_vals = numpy.array([abs(float(f_deriv.subs(x, val1))) for val1 in safe_vals])
+    M = float(numpy.max(deriv_vals)) # these will be computed over only defined x_val. No inf M!
     m_text.set_text(f'M = {M:.4f}') # f string - embeds variables in text. 4 decimal places
 
     fig.canvas.draw_idle() # draw_idle tells matplotlib to redraw the figure efficiently
